@@ -188,7 +188,12 @@ function parseWebhookResponse(raw, userText = "") {
     ?? (typeof outputStr === "string" && !outputStr.startsWith("{") ? outputStr : null)
     ?? "";
 
-  const itineraryMarkdown = inner?.researchData?.output ?? inner?.itinerary ?? null;
+  let rawItin = inner?.researchData?.output ?? null;
+  if (rawItin && typeof rawItin === "string" && rawItin.trim().startsWith("{")) {
+    const parsed2 = safeParseJSON(rawItin);
+    rawItin = parsed2?.output ?? rawItin;
+  }
+  const itineraryMarkdown = rawItin ?? null;
 
 
   const flights   = safeArray(inner?.flights   ?? inner?.options?.flights);

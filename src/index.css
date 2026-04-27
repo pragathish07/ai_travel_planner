@@ -1,0 +1,20 @@
+.markdown-body h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+  color: var(--accent); /* Or your T.accent color */
+}
+
+.markdown-body p {
+  margin-bottom: 8px;
+}
+
+.markdown-body strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.markdown-body ul {
+  padding-left: 18px;
+  margin-bottom: 10px;
+}

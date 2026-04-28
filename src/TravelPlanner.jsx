@@ -129,7 +129,7 @@ const STAGES = [
   { id: "routing",   icon: "◎", label: "Planning route"          },
   { id: "writing",   icon: "≡", label: "Writing itinerary"       },
 ];
-const STAGE_MS = { searching:8000, flights:4500, hotels:3500, routing:7000, writing:10000 };
+const STAGE_MS = { searching:9000, flights:5500, hotels:4500, routing:8000, writing:10000 };
 
 // ─── SESSION HELPERS ──────────────────────────────────────────
 function generateSessionId() {
@@ -218,35 +218,73 @@ function parseWebhookResponse(raw, userText = "") {
 function parseHistoryMessages(rows) {
   if (!Array.isArray(rows)) return [];
   const result = [];
+  const liveDataAccumulator = {};
+
   for (const row of rows) {
     const msg = row.message ?? row;
     const role = msg.type === "human" ? "user"
-      : msg.type === "ai" ? "assistant" : (msg.role ?? "assistant");
+      : msg.type === "ai" ? "assistant"
+      : msg.type === "tool" ? "tool"
+      : (msg.role ?? "assistant");
+
+    // Skip tool messages entirely — these are internal search results
+    if (role === "tool") continue;
+
+    // Skip messages that are only tool calls (no real content for the user)
+    if (msg.tool_calls?.length > 0 && (!msg.content || 
+        msg.content.startsWith("Calling tools:") || 
+        msg.content.startsWith("Calling Search_"))) continue;
 
     let content = msg.content ?? msg.text ?? "";
-    let structured = null;
 
+    // Parse JSON content from AI messages
     if (role === "assistant" && typeof content === "string" && content.trim().startsWith("{")) {
       const p = safeParseJSON(content);
       const inner = p?.output ?? p ?? {};
+
+      // Extract right-panel data
+      if (inner.flights?.length)   liveDataAccumulator.flights           = inner.flights;
+      if (inner.hotels?.length)    liveDataAccumulator.hotels            = inner.hotels;
+      if (inner.budget_summary)    liveDataAccumulator.budget            = inner.budget_summary;
+      if (inner.weather)           liveDataAccumulator.weather           = inner.weather;
+
+      // Extract itinerary markdown (unwrap nested JSON if needed)
+      let rawItin = inner?.researchData?.output ?? null;
+      if (rawItin && typeof rawItin === "string" && rawItin.trim().startsWith("{")) {
+        const p2 = safeParseJSON(rawItin);
+        rawItin = p2?.output ?? rawItin;
+      }
+      if (rawItin && typeof rawItin === "string" && rawItin.includes("##")) {
+        liveDataAccumulator.itineraryMarkdown = rawItin;
+      }
+
+      // Get readable chat message
       const readable = inner?.researchData?.output ?? inner?.output ?? "";
-      const itin = inner?.itinerary ?? null;
-      structured = { inner, itin };
-      if (readable) content = readable;
-      else if (itin) content = "✈ Your itinerary is ready — see the panel →";
-      else content = "";
+      let displayText = readable;
+      if (typeof displayText === "string" && displayText.trim().startsWith("{")) {
+        const p3 = safeParseJSON(displayText);
+        displayText = p3?.output ?? "";
+      }
+
+      // Skip if no readable text (intermediate AI steps)
+      if (!displayText || typeof displayText !== "string" || !displayText.trim()) continue;
+
+      content = displayText;
     }
 
-    if (!content) continue;
+    // Skip any remaining raw JSON blobs
+    if (typeof content === "string" && content.trim().startsWith("{")) continue;
+    if (!content || !content.trim()) continue;
+
     result.push({
       role,
       content,
-      structured,
       ts: row.created_at ?? null,
       sessionId: row.session_id,
     });
   }
-  return result;
+
+  return { messages: result, liveData: liveDataAccumulator };
 }
 
 // ─── RICH BUBBLE FORMATTER ────────────────────────────────────
@@ -1033,37 +1071,36 @@ export default function App() {
     } catch {}
   }, []);
 
-  // FIX 3: Fetch history only when sessionId changes AND we haven't loaded it yet.
+  
   // New sessions (not in history) will get empty messages correctly.
-  useEffect(() => {
-    if (loadedSessionRef.current === sessionId) return;
-    loadedSessionRef.current = sessionId;
+ useEffect(() => {
+  if (loadedSessionRef.current === sessionId) return;
+  loadedSessionRef.current = sessionId;
 
-    async function load() {
-      // Clear immediately so old messages don't flash
-      setMessages([]);
-      setLiveData({});
-      setStageStatus({});
-      setIsProcessing(false);
+  async function load() {
+    setMessages([]);
+    setLiveData({});
+    setStageStatus({});
+    setIsProcessing(false);
 
-      try {
-        const res = await fetch(`${N8N_HISTORY}?sessionId=${sessionId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const rows = Array.isArray(data) ? data : (data.messages ?? []);
+    try {
+      const res = await fetch(`${N8N_HISTORY}?sessionId=${sessionId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : (data.messages ?? []);
 
-        // FIX 4: Only load history if this session actually has messages in DB
-        // and the session ID matches (prevents cross-session contamination)
-        const filtered = rows.filter(r =>
-          !r.session_id || r.session_id === sessionId
-        );
+      const filtered = rows.filter(r =>
+        !r.session_id || r.session_id === sessionId
+      );
 
-        const msgs = parseHistoryMessages(filtered);
-        if (msgs.length) setMessages(msgs);
-      } catch {}
-    }
-    load();
-  }, [sessionId]);
+      // Use the new return shape
+      const { messages: msgs, liveData: live } = parseHistoryMessages(filtered);
+      if (msgs.length) setMessages(msgs);
+      if (Object.keys(live).length) setLiveData(live);
+    } catch {}
+  }
+  load();
+}, [sessionId]);
 
   // Pipeline simulation
   const simulatePipeline = useCallback(async () => {

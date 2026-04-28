@@ -1,0 +1,1502 @@
+{
+  "name": "ai_travel_itinerary_planner",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -7408,
+        -896
+      ],
+      "id": "777e14d1-3b36-48e9-9240-f5c65164e9a9",
+      "name": "When chat message received",
+      "webhookId": "067e8704-b4e9-476b-8cca-7999e53bc677"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.chatInput }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=### ROLE\nYou are an expert Travel Intelligence, friendly and helpful travel assistant. Your goal is to guide the user in planning their perfect trip and research and structure a perfect travel foundation based on user constraints. You use tools to gather real-time data and output structured JSON for downstream pathfinding and budgeting nodes.\n\n\n--Important: Never ask for 'required details' vaguely. If you need information, explain why you need it and give an example.\n\n--Greet the user warmly and introduce yourself as their personal travel planning assistant.\n\n--Ask for the following information one by one or in a clear, grouped list if they are ready: Destination, Travel Dates, Budget, and any specific preferences (e.g., luxury vs. budget, adventurous vs. relaxing).\n\n--Example: 'To help me build the best itinerary, could you tell me where you'd like to go and what your approximate budget is? For example, a 5-day trip to Dubai on a $1,500 budget.'\n\n--Now have now collected all the necessary details from the user.\n\nBefore proceeding, summarize the information clearly: 'Just to make sure I have everything right: you're planning a [Number]-day trip to [Destination] with a budget of $[Amount], focusing on [Preferences]. Does that look correct?'\n\nExplicitly tell the user: 'Please type confirm if these details are correct, or let me know if you’d like to change anything.'\n\n\n### MANDATORY USER DATA (The \"Big 4\")\n1. Destination (City)\n2. Budget (Total amount in USD)\n3. Duration (Number of days)\n4. Travel Style/Preferences (e.g., Luxury, Budget, Hidden Gems, Foodie)\n5. Date like when are they planning to leave. \n\n\n\n### RULES OF ENGAGEMENT\n- If any of the \"Big 4\" are missing, politely ask the user for them.(ask them in output field in the json)\n- Set `infoCollected` to FALSE if any of the \"Big 4\" are missing.\n- Set `infoCollected` to TRUE only when Destination, Budget, Duration, and Preferences are confirmed.after user replies with \"CONFIRM.\n- Once `infoCollected` is TRUE, you MUST use the 'Tavily Search' tool to research the destination.\n- Use the current year {{currentDateTime}} (2026) for all event and attraction searches.\n- Set outbound_date as the user's date of leaving(ask to the user) store it in 'YYYY-MM-DD' format\n- Set the return date by calculating outbound_date + duration in 'YYYY-MM-DD' format\n### TOOL USAGE (Tavily) \n- Set departure_airport and arrival_airport accordingly in  IATA airport codes format (MAA,DXB)\n- Set search_query as a string to set in google hotels API,(e.g., hotels in location of user,set specific location)\n\n\n### ACTIVITY RESEARCH RULES\nWhen researching activities, you MUST prioritise:\n1. ICONIC landmarks that 90%+ of tourists visit (Burj Khalifa in Dubai, Eiffel Tower in Paris, etc.)\n2. TOP-RATED experiences from TripAdvisor/Google with 10,000+ reviews\n3. Activities that appear in \"Top 10 things to do in {destination}\" lists\n\nSearch queries to use (in this order):\n- \"top 10 must visit attractions {destination} 2026\"\n- \"most popular tourist activities {destination} tripadvisor\"\n- \"iconic landmarks {destination} every tourist visits\"\n\nNEVER include:\n- Obscure local spots with fewer than 1,000 reviews\n- Activities not mentioned in mainstream travel guides\n- Generic entries like \"explore the city\" or \"walk around\"\n\nEach activity MUST be a specific named place or experience.\nExample GOOD: \"Burj Khalifa observation deck\", \"Dubai Mall aquarium\", \"Desert Safari with BBQ dinner\"\nExample BAD: \"Visit a local market\", \"Explore downtown\", \"Experience local culture\"\n\n\nFor each activity and restaurant, set source_url to the\nURL of the Tavily search result you used to write the\ndescription. Set source_name to the domain name only\n(e.g. \"tripadvisor.com\", \"lonelyplanet.com\").\n\n-- KEEP THE CURRENCY AS INR ONLY,DONT CONVERT INTO USD,throghout this keep the currency as INR only.--\n\nMANDATORY: you should return your questions/greetings in output field of the json.\ndo not put that in transport notes or create any new fields,strictly in the output field in the json.\n\n### OUTPUT FORMAT\nYou must respond in a valid JSON format. Do not include conversational filler in the JSON output.\n\n{\n  \"infoCollected\": boolean,\n  \"missingFields\": [string],\n  \"search_query\":\"string\",\n  \"extractedContext\": {\n    \"destination\": string (city alone dont include country),\n    \"budget\": number,\n    \"days\": number,\n    \"preferences\": string,\n    \"outbound_date\":yyyy-mm-dd,\n    \"return_date\":yyyy-mm-dd,\n    \"departure_airport\":\"MAA\",\n    \"arrival_airport\":\"DXB\"\n  },\n  \"researchData\": {\n    \"activities\": [\n      {\n        \"name\": string,\n        \"type\": \"culture\" | \"adventure\" | \"relaxation\" | \"landmark\",\n        \"neighborhood\": string,\n        \"approx_cost\": number,\n        \"duration_hrs\": number,\n        \"description\": string,\n        \"source_url\": string,   \n        \"source_name\": string\n      }\n    ],\n    \"restaurants\": [\n      {\n        \"name\": string,\n        \"cuisine\": string,\n        \"neighborhood\": string,\n        \"approx_cost_per_person\": number,\n        \"description\": string,\n        \"source_url\": string,  \n        \"source_name\": string\n      }\n    ],\n    \"transport_notes\": string,\n    \"local_tips\": [string],\n     \"output\":\"Hello — I’m your personal travel planning assistant. To build the best itinerary I need the following information (I explain why each is needed and give an example):\\n\\n1) Destination (city, country) — needed to research attractions, flights and hotels. Example: Paris, France.\\n2) Budget (total in INR) — needed to create realistic flight/hotel/activity options and a costed plan. Example: INR 100000.\\n3) Duration (number of days) — needed to schedule activities and set the return date.....\"\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        160,
+        -272
+      ],
+      "id": "7bc7d4b1-3d4a-4c54-8b2d-aa573500ba5e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "query": "={{ $fromAI('Query', ``, 'string') }}",
+        "options": {
+          "search_depth": "advanced"
+        }
+      },
+      "type": "@tavily/n8n-nodes-tavily.tavilyTool",
+      "typeVersion": 1,
+      "position": [
+        464,
+        16
+      ],
+      "id": "4caecf9b-4c7f-4f90-bfc2-5f50f9fc5f48",
+      "name": "Search in Tavily",
+      "credentials": {
+        "tavilyApi": {
+          "id": "YeC1NeHgl27lvUI4",
+          "name": "Tavily account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "google_flights",
+        "departure_id": "={{ $json.output.extractedContext.departure_airport }}",
+        "arrival_id": "={{ $json.output.extractedContext.arrival_airport }}",
+        "outbound_date": "={{ $json.output.extractedContext.outbound_date }}",
+        "return_date": "={{ $json.output.extractedContext.return_date }}",
+        "additionalFields": {
+          "currency": "INR",
+          "max_price": "={{ $json.output.extractedContext.budget /2.5}}"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        944,
+        -336
+      ],
+      "id": "611d8b15-f403-4166-8478-32860b07d3af",
+      "name": "Google_flights search",
+      "credentials": {
+        "serpApi": {
+          "id": "m809rC4BVTgfb2fx",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "google_hotels",
+        "q": "={{ $json.output.search_query }}",
+        "check_in_date": "={{ $json.output.extractedContext.outbound_date }}",
+        "check_out_date": "={{ $json.output.extractedContext.return_date }}",
+        "additionalFields": {
+          "currency": "INR"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        944,
+        -80
+      ],
+      "id": "f3881f99-082f-40c0-ba73-dd0b44dd9837",
+      "name": "Google_hotels search",
+      "credentials": {
+        "serpApi": {
+          "id": "m809rC4BVTgfb2fx",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1376,
+        -240
+      ],
+      "id": "dc390ad7-e6cd-4db7-b113-3d982b78f23d",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput   = $('AI Agent').first().json.output;\nconst totalBudget   = agentOutput.extractedContext.budget;\nconst tripDays      = agentOutput.extractedContext.days;\nconst preferences   = agentOutput.extractedContext.preferences.toLowerCase();\nconst destination   = agentOutput.extractedContext.destination;\n\nconst flightsNode   = $('Google_flights search').first().json;\nconst rawFlights    = flightsNode.best_flights || flightsNode.other_flights || []; \n\nconst rawHotels     = $('Google_hotels search').first().json.properties || [];\nconst rawActivities = agentOutput?.output?.researchData?.activities || \n                     agentOutput?.research_data?.activities || [];\n\n// TEMPORARY DEBUG — remove after confirming\nconst debugHotel = rawHotels[0] || {};\nconsole.log('Hotel keys:', JSON.stringify(Object.keys(debugHotel)));\nconsole.log('Hotel sample:', JSON.stringify({\n  name: debugHotel.name,\n  price: debugHotel.price,\n  lowest: debugHotel.lowest,\n  rate_per_night: debugHotel.rate_per_night,\n  total_rate: debugHotel.total_rate,\n  prices: debugHotel.prices\n}));\n\n// ── STEP 1: PREFERENCE-AWARE BUDGET SPLIT\nlet split = { flight: 0.35, hotel: 0.30, activity: 0.20, meals: 0.10, buffer: 0.05 };\n\nif (preferences.includes('luxury')) {\n    split = { flight: 0.35, hotel: 0.39, activity: 0.17, meals: 0.04, buffer: 0.05 };\n} else if (preferences.includes('budget') || preferences.includes('backpack')) {\n    split = { flight: 0.35, hotel: 0.19, activity: 0.32, meals: 0.09, buffer: 0.05 };\n} else if (preferences.includes('foodie') || preferences.includes('food')) {\n    split = { flight: 0.35, hotel: 0.26, activity: 0.13, meals: 0.22, buffer: 0.04 };\n} else if (preferences.includes('adventure') || preferences.includes('outdoor')) {\n    split = { flight: 0.35, hotel: 0.22, activity: 0.35, meals: 0.04, buffer: 0.04 };\n}\n\n// ── FIX: Compute limits directly from totalBudget (buffer is reserved, not deducted from limits)\nconst bufferReserve = totalBudget * split.buffer;\nconst flightLimit   = totalBudget * split.flight;\nconst hotelLimit    = totalBudget * split.hotel;\nconst activityLimit = totalBudget * split.activity;\nconst mealLimit     = totalBudget * split.meals;\n// These 5 categories sum to 100% of totalBudget\n\nconst mealPerDay    = mealLimit / tripDays;\n\n// ── STEP 2: SMART FLIGHT FILTER\nfunction filterFlights(flights, limit) {\n  let filtered = flights\n    .filter(f => f.price <= limit)\n    .sort((a, b) => {\n      const priceScoreA = a.price / limit;\n      const priceScoreB = b.price / limit;\n      const durScoreA   = (a.total_duration || 1800) / 1800;\n      const durScoreB   = (b.total_duration || 1800) / 1800;\n      return (priceScoreA + durScoreA * 0.3) - (priceScoreB + durScoreB * 0.3);\n    })\n    .slice(0, 5);\n\n  if (filtered.length === 0) {\n    filtered = flights\n      .filter(f => f.price <= limit * 1.20)\n      .sort((a, b) => a.price - b.price)\n      .slice(0, 3);\n    return { data: filtered, relaxed: true, relaxed_by: '20%' };\n  }\n  return { data: filtered, relaxed: false };\n}\n\n// ── STEP 3: SMART HOTEL FILTER\nfunction filterHotels(hotels, limit, days) {\n  const withTotal = hotels.map(h => {\n\n    // Walk every possible path SerpAPI uses for price\n    let pricePerNight = 0;\n\n    // Structure 1: rate_per_night object\n    if (h.rate_per_night) {\n      pricePerNight = h.rate_per_night.extracted_lowest\n        || parseFloat(String(h.rate_per_night.lowest  || '0').replace(/[^0-9.]/g, ''))\n        || 0;\n    }\n\n    // Structure 2: total_rate object (divide by days to get per-night)\n    if (!pricePerNight && h.total_rate) {\n      const totalExtracted = h.total_rate.extracted_lowest\n        || parseFloat(String(h.total_rate.lowest || '0').replace(/[^0-9.]/g, ''))\n        || 0;\n      pricePerNight = days > 0 ? totalExtracted / days : 0;\n    }\n\n    // Structure 3: prices array (SerpAPI sometimes returns this)\n    if (!pricePerNight && Array.isArray(h.prices) && h.prices.length > 0) {\n      const firstPrice = h.prices[0];\n      pricePerNight = firstPrice.extracted_lowest\n        || firstPrice.rate_per_night?.extracted_lowest\n        || parseFloat(String(firstPrice.lowest || firstPrice.rate || '0').replace(/[^0-9.]/g, ''))\n        || 0;\n    }\n\n    // Structure 4: flat fields directly on the hotel object\n    if (!pricePerNight) {\n      const flat = h.price || h.lowest || h.nightly_price || '0';\n      pricePerNight = parseFloat(String(flat).replace(/[^0-9.]/g, '')) || 0;\n    }\n\n    const totalStayCost = pricePerNight * days;\n\n    return {\n      ...h,\n      total_stay_cost    : totalStayCost,\n      price_per_night_num: pricePerNight,\n      rating_num         : parseFloat(h.overall_rating || 0)\n    };\n  });\n\n  // Log parsed prices so you can see what's happening in n8n execution log\n  console.log('Hotel prices parsed:', withTotal.map(h => ({\n    name : h.name,\n    ppn  : h.price_per_night_num,\n    total: h.total_stay_cost\n  })));\n\n  let filtered = withTotal\n    .filter(h => h.total_stay_cost > 0 && h.total_stay_cost <= limit)\n    .sort((a, b) => {\n      const valueA = a.rating_num / (a.price_per_night_num || 1);\n      const valueB = b.rating_num / (b.price_per_night_num || 1);\n      return valueB - valueA;\n    })\n    .slice(0, 5);\n\n  if (filtered.length === 0) {\n    // Relaxed pass — also require price > 0 so zero-price ghost hotels don't sneak in\n    filtered = withTotal\n      .filter(h => h.total_stay_cost > 0 && h.total_stay_cost <= limit * 1.20)\n      .sort((a, b) => a.total_stay_cost - b.total_stay_cost)\n      .slice(0, 3);\n\n    if (filtered.length === 0) {\n      // Nothing has a price at all — SerpAPI didn't return pricing\n      // Return raw hotels with a flag so the warning fires\n      return { data: [], relaxed: true, relaxed_by: '20%', no_pricing: true };\n    }\n\n    return { data: filtered, relaxed: true, relaxed_by: '20%' };\n  }\n\n  return { data: filtered, relaxed: false };\n}\n// ── STEP 4: ACTIVITY FILTER\nfunction getTypePriority(prefs) {\n  if (prefs.includes('culture') || prefs.includes('history')) return { culture: 5, landmark: 4, adventure: 2, relaxation: 1 };\n  if (prefs.includes('adventure') || prefs.includes('outdoor')) return { adventure: 5, landmark: 3, culture: 2, relaxation: 1 };\n  if (prefs.includes('luxury') || prefs.includes('relax')) return { relaxation: 5, landmark: 3, culture: 2, adventure: 1 };\n  return { landmark: 4, culture: 3, adventure: 3, relaxation: 2 };\n}\n\nfunction filterActivities(activities, limit, preferences) {\n  const typePriority = getTypePriority(preferences);\n  const scored = activities.map(a => ({ ...a, priority_score: typePriority[a.type] || 1 }));\n  scored.sort((a, b) => (b.priority_score !== a.priority_score) ? b.priority_score - a.priority_score : a.approx_cost - b.approx_cost);\n\n  let spent = 0;\n  const selected = [];\n  for (const act of scored) {\n    if (spent + act.approx_cost <= limit) {\n      spent += act.approx_cost;\n      selected.push(act);\n    }\n  }\n  return { data: selected, actual_spend: spent };\n}\n\n// ── RUN ALL FILTERS\nconst flightResult   = filterFlights(rawFlights, flightLimit);\nconst hotelResult    = filterHotels(rawHotels, hotelLimit, tripDays);\nconst activityResult = filterActivities(rawActivities, activityLimit, preferences);\n\n// ── STEP 5: BUDGET HEALTH SCORE\n// ── FIX: Use actual data values; fall back to limit if no results returned\nconst cheapestFlightCost  = flightResult.data.length > 0  ? flightResult.data[0].price               : flightLimit;\nconst cheapestHotelCost   = hotelResult.data.length  > 0  ? hotelResult.data[0].total_stay_cost       : hotelLimit;\nconst activitySpend       = activityResult.actual_spend;\n\n// estimated_total is a realistic projection: cheapest flight + cheapest hotel + activities + full meal budget\nconst estimatedTotal  = cheapestFlightCost + cheapestHotelCost + activitySpend + mealLimit;\nconst remaining       = totalBudget - estimatedTotal;\nconst healthPct       = Math.round((remaining / totalBudget) * 100);\n\nlet healthLabel = '';\nlet healthAdvice = '';\nif (healthPct >= 20) {\n  healthLabel = 'Excellent';\n  healthAdvice = `₹${remaining.toFixed(0)} breathing room — consider upgrading hotel or adding experiences.`;\n} else if (healthPct >= 10) {\n  healthLabel = 'Good';\n  healthAdvice = `₹${remaining.toFixed(0)} spare. Stay on budget for meals and transport.`;\n} else if (healthPct >= 0) {\n  healthLabel = 'Tight';\n  healthAdvice = `Trip fits budget but barely. Watch daily spending carefully.`;\n} else {\n  healthLabel = 'Over Budget';\n  healthAdvice = `Exceeds budget by ₹${Math.abs(remaining).toFixed(0)}. Consider cheaper flights or hotel.`;\n}\n\n// Warnings\nconst warnings = [];\nif (flightResult.relaxed)  warnings.push(`Flight budget relaxed by 20% — cheapest option is ₹${cheapestFlightCost.toFixed(0)}`);\nif (hotelResult.relaxed)   warnings.push(`Hotel budget relaxed by 20% — cheapest option is ₹${cheapestHotelCost.toFixed(0)}`);\nif (flightResult.data.length === 0) warnings.push('No flights found — check departure/arrival airport codes');\nif (hotelResult.data.length === 0)  warnings.push('No hotels found — check destination search query');\n\n// ── FINAL OUTPUT\nreturn [{\n  json: {\n    budget_summary: {\n      total_budget   : totalBudget,\n      limits: {\n        flightLimit,\n        hotelLimit,\n        activityLimit,\n        mealLimit,\n        bufferReserve   // ← NEW: clearly shows what's held back\n      },\n      estimated_costs: {               // ← NEW: separate from limits so Agent Pass 2 can display both\n        flight   : cheapestFlightCost,\n        hotel    : cheapestHotelCost,\n        activities: activitySpend,\n        meals    : mealLimit,\n        total    : parseFloat(estimatedTotal.toFixed(0))\n      },\n      estimated_total : parseFloat(estimatedTotal.toFixed(0)),\n      remaining       : parseFloat(remaining.toFixed(0)),        // ← FIX: now exists on the object\n      health_score    : healthLabel,\n      health_advice   : healthAdvice,\n      warnings\n    },\n    options: {\n      flights    : flightResult.data,\n      hotels     : hotelResult.data,\n      activities : activityResult.data\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        -208
+      ],
+      "id": "06dcc42c-0721-4990-850f-e8db7fe1d818",
+      "name": "budget guard"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── GEOCODING NODE ──────────────────────────────────────────\n// Reads from Budget Guard output\n// Activities & restaurants have no lat/lng (came from Tavily via Agent)\n// Hotels already have gps_coordinates from SerpApi → skip them\n// Uses Nominatim (OpenStreetMap) — free, no API key needed\n// Rate limit: 1 request per second (required by Nominatim ToS)\n// ────────────────────────────────────────────────────────────\n\nconst input = $input.first().json;\n\nconst destination = $('AI Agent').first().json.output.extractedContext.destination;\n\nconst activities  = input.options.activities  || [];\nconst hotels      = input.options.hotels      || [];\nconst budgetSummary = input.budget_summary;\n\n// ── Helper: sleep to respect Nominatim 1 req/sec rate limit\nfunction sleep(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\n// ── Helper: fetch lat/lng from Nominatim for a place name\nasync function geocode(placeName, destination) {\n  const query = encodeURIComponent(`${placeName}, ${destination}`);\n  const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;\n\n  try {\n    const response = await $http.request({\n      method: 'GET',\n      url: url,\n      headers: {\n        // Nominatim requires a User-Agent identifying your app\n        'User-Agent': 'TravelPlannerApp/1.0 (travel-planner@example.com)'\n      }\n    });\n\n    if (response && response.length > 0) {\n      return {\n        lat: parseFloat(response[0].lat),\n        lng: parseFloat(response[0].lon)\n      };\n    }\n  } catch (err) {\n    // If geocoding fails for a place, return null coords\n    // Pathfinder will skip places with null coords\n    console.log(`Geocoding failed for: ${placeName} — ${err.message}`);\n  }\n\n  return { lat: null, lng: null };\n}\n\n// ── 1. GEOCODE ACTIVITIES\nconst geocodedActivities = [];\n\nfor (const activity of activities) {\n  const coords = await geocode(activity.name, destination);\n  geocodedActivities.push({\n    ...activity,\n    lat: coords.lat,\n    lng: coords.lng\n  });\n  // Wait 1.1 seconds between requests — Nominatim hard requirement\n  await sleep(1100);\n}\n\n// ── 2. HOTELS — already have gps_coordinates from SerpApi\n// Just reshape to flat lat/lng fields so Pathfinder has\n// a consistent structure across all place types\nconst geocodedHotels = hotels.map(hotel => {\n  // SerpApi returns: hotel.gps_coordinates.latitude / .longitude\n  const coords = hotel.gps_coordinates || {};\n  return {\n    ...hotel,\n    lat: coords.latitude  || null,\n    lng: coords.longitude || null\n  };\n});\n\n// ── 3. RESTAURANTS — from AI Agent researchData\n// Budget Guard only passes activities and hotels\n// Restaurants come directly from Agent output\nconst rawRestaurants = $('AI Agent').first().json.output.researchData.restaurants || [];\n\nconst geocodedRestaurants = [];\n\nfor (const restaurant of rawRestaurants) {\n  const coords = await geocode(restaurant.name, destination);\n  geocodedRestaurants.push({\n    ...restaurant,\n    lat: coords.lat,\n    lng: coords.lng\n  });\n  await sleep(1100);\n}\n\n// ── FINAL OUTPUT\n// Passes everything the Pathfinder needs:\n// all places with lat/lng, budget summary, hotel as anchor\nreturn {\n  budget_summary: budgetSummary,\n\n  // Pathfinder uses the first hotel as the day anchor point\n  selected_hotel: geocodedHotels[0] || null,\n\n  all_hotels: geocodedHotels,\n\n  activities: geocodedActivities,\n\n  restaurants: geocodedRestaurants,\n\n  // Pass through destination and days for Pathfinder logic\n  meta: {\n    destination: destination,\n    days: $('AI Agent').first().json.output.extractedContext.days,\n    preferences: $('AI Agent').first().json.output.extractedContext.preferences\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        -208
+      ],
+      "id": "3994a5f6-9238-4525-8ccb-2e97d00d08e8",
+      "name": "geo_coder"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── PATHFINDER NODE ─────────────────────────────────────────\n// Receives geocoded places from Geocoding Node\n// Uses Haversine distance to cluster and sort activities\n// into a realistic day-by-day walking route\n// ─────────────────────────────────────────────────────────────\n\nconst input = $input.first().json;\n\nconst hotel      = input.selected_hotel;\nconst activities = input.activities   || [];\nconst restaurants= input.restaurants  || [];\nconst meta       = input.meta;\nconst budget     = input.budget_summary;\n\nconst totalDays  = meta.days;\n\n// ─────────────────────────────────────────────────────────────\n// STEP 1 — HAVERSINE FORMULA\n// Calculates straight-line distance in KM between two coords\n// ─────────────────────────────────────────────────────────────\n\nfunction haversine(lat1, lng1, lat2, lng2) {\n  // If either point has no coords, return a large number\n  // so null-coord places sort to the end and don't break math\n  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) {\n    return 9999;\n  }\n\n  const R    = 6371; // Earth radius in km\n  const dLat = (lat2 - lat1) * Math.PI / 180;\n  const dLng = (lng2 - lng1) * Math.PI / 180;\n\n  const a =\n    Math.sin(dLat / 2) * Math.sin(dLat / 2) +\n    Math.cos(lat1 * Math.PI / 180) *\n    Math.cos(lat2 * Math.PI / 180) *\n    Math.sin(dLng / 2) * Math.sin(dLng / 2);\n\n  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n  return R * c; // distance in km\n}\n\n// ─────────────────────────────────────────────────────────────\n// STEP 2 — SORT ALL ACTIVITIES BY DISTANCE FROM HOTEL\n// This gives us a rough \"how far is everything\" baseline\n// ─────────────────────────────────────────────────────────────\n\nconst hotelLat = hotel ? hotel.lat : null;\nconst hotelLng = hotel ? hotel.lng : null;\n\nconst activitiesWithDistance = activities.map(act => ({\n  ...act,\n  dist_from_hotel_km: haversine(hotelLat, hotelLng, act.lat, act.lng)\n}));\n\n// Sort by distance from hotel ascending\nactivitiesWithDistance.sort((a, b) => a.dist_from_hotel_km - b.dist_from_hotel_km);\n\n// ─────────────────────────────────────────────────────────────\n// STEP 3 — CLUSTER ACTIVITIES INTO DAYS\n// Split the sorted activity list into N equal day buckets\n// Activities closest to hotel go on day 1, furthest on last day\n// This naturally groups nearby activities together\n// ─────────────────────────────────────────────────────────────\n\n// How many activities per day (distribute evenly)\nconst perDay = Math.ceil(activitiesWithDistance.length / totalDays);\n\nconst dayClusters = [];\nfor (let d = 0; d < totalDays; d++) {\n  const start = d * perDay;\n  const end   = start + perDay;\n  dayClusters.push(activitiesWithDistance.slice(start, end));\n}\n\n// ─────────────────────────────────────────────────────────────\n// STEP 4 — NEAREST NEIGHBOUR SORT WITHIN EACH DAY\n// Within each day's cluster, find the most efficient\n// walking order starting from the hotel\n// ─────────────────────────────────────────────────────────────\n\nfunction nearestNeighbourSort(stops, startLat, startLng) {\n  const remaining = [...stops];\n  const ordered   = [];\n\n  let currentLat = startLat;\n  let currentLng = startLng;\n\n  while (remaining.length > 0) {\n    // Find the closest unvisited stop from current position\n    let closestIdx  = 0;\n    let closestDist = haversine(currentLat, currentLng, remaining[0].lat, remaining[0].lng);\n\n    for (let i = 1; i < remaining.length; i++) {\n      const dist = haversine(currentLat, currentLng, remaining[i].lat, remaining[i].lng);\n      if (dist < closestDist) {\n        closestDist = dist;\n        closestIdx  = i;\n      }\n    }\n\n    const next = remaining.splice(closestIdx, 1)[0];\n    ordered.push({\n      ...next,\n      dist_from_prev_km: parseFloat(closestDist.toFixed(2))\n    });\n\n    // Move current position to the stop we just added\n    currentLat = next.lat;\n    currentLng = next.lng;\n  }\n\n  return ordered;\n}\n\n// ─────────────────────────────────────────────────────────────\n// STEP 5 — ASSIGN TIMES TO EACH STOP\n// Start at 9:00 AM each day\n// Each activity takes duration_hrs\n// Add 20 min travel buffer between stops\n// ─────────────────────────────────────────────────────────────\n\nfunction assignTimes(orderedStops) {\n  // Start time: 9:00 AM in minutes from midnight\n  let currentMinutes = 9 * 60;\n\n  return orderedStops.map((stop, idx) => {\n    const hours   = Math.floor(currentMinutes / 60);\n    const minutes = currentMinutes % 60;\n    const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;\n\n    const stopWithTime = {\n      ...stop,\n      suggested_arrival: timeStr,\n      order: idx + 1\n    };\n\n    // Advance time by activity duration + 20 min travel buffer\n    const durationMins = (stop.duration_hrs || 1) * 60;\n    currentMinutes += durationMins + 20;\n\n    return stopWithTime;\n  });\n}\n\n// ─────────────────────────────────────────────────────────────\n// STEP 6 — FIND NEAREST DINNER RESTAURANT FOR EACH DAY\n// After all activities are done, find the restaurant\n// closest to the last activity of that day\n// ─────────────────────────────────────────────────────────────\n\nfunction findDinnerStop(lastStop, restaurants, usedRestaurantNames) {\n  if (!restaurants || restaurants.length === 0) return null;\n\n  // Filter out already used restaurants (one per day)\n  const available = restaurants.filter(r => !usedRestaurantNames.has(r.name));\n  if (available.length === 0) return null;\n\n  const lastLat = lastStop ? lastStop.lat : hotelLat;\n  const lastLng = lastStop ? lastStop.lng : hotelLng;\n\n  // Find closest available restaurant to last activity\n  const sorted = available\n    .map(r => ({\n      ...r,\n      dist_from_prev_km: parseFloat(\n        haversine(lastLat, lastLng, r.lat, r.lng).toFixed(2)\n      )\n    }))\n    .sort((a, b) => a.dist_from_prev_km - b.dist_from_prev_km);\n\n  return sorted[0];\n}\n\n// ─────────────────────────────────────────────────────────────\n// STEP 7 — BUILD FINAL DAY-BY-DAY ITINERARY\n// ─────────────────────────────────────────────────────────────\n\nconst usedRestaurantNames = new Set();\nconst itinerary = [];\n\nfor (let d = 0; d < totalDays; d++) {\n  const cluster = dayClusters[d] || [];\n\n  // Nearest-neighbour sort starting from hotel\n  const orderedStops = nearestNeighbourSort(cluster, hotelLat, hotelLng);\n\n  // Assign suggested arrival times\n  const timedStops = assignTimes(orderedStops);\n\n  // Calculate day cost (sum of all activity costs)\n  const activityCostToday = timedStops.reduce(\n    (sum, s) => sum + (s.approx_cost || 0), 0\n  );\n\n  // Find dinner restaurant near last stop of the day\n  const lastStop = timedStops[timedStops.length - 1] || null;\n  const dinner   = findDinnerStop(lastStop, restaurants, usedRestaurantNames);\n\n  if (dinner) {\n    usedRestaurantNames.add(dinner.name);\n\n    // 1. Get the last stop's time, or default to 18:00 (6 PM) if no activities exist\n    const lastStopTime  = lastStop ? lastStop.suggested_arrival : '18:00';\n    const [lh, lm]      = lastStopTime.split(':').map(Number);\n    \n    // 2. Safely get duration: use lastStop.duration_hrs if it exists, otherwise default to 0\n    const lastStopDuration = lastStop?.duration_hrs || 0;\n    \n    // 3. Calculate dinner start (Last activity end + 20 min buffer)\n    const lastEndMins   = (lh * 60) + lm + (lastStopDuration * 60) + 20;\n    \n    const dinnerHours   = Math.floor(lastEndMins / 60);\n    const dinnerMinutes = lastEndMins % 60;\n    \n    dinner.suggested_arrival = `${String(dinnerHours).padStart(2, '0')}:${String(dinnerMinutes).padStart(2, '0')}`;\n    dinner.order        = timedStops.length + 1;\n    dinner.type         = 'dinner';\n  }\n\n  // Total day cost including dinner\n  const dinnerCost    = dinner ? (dinner.approx_cost_per_person || 0) : 0;\n  const totalDayCost  = activityCostToday + dinnerCost;\n\n  // Total walking distance for the day\n  const totalWalkingKm = timedStops.reduce(\n    (sum, s) => sum + (s.dist_from_prev_km || 0), 0\n  );\n\n  itinerary.push({\n    day: d + 1,\n    day_label: `Day ${d + 1}`,\n    hotel_base: hotel ? hotel.name : 'Selected Hotel',\n    stops: timedStops,\n    dinner: dinner,\n    day_summary: {\n      total_activities : timedStops.length,\n      activity_cost_usd: parseFloat(activityCostToday.toFixed(2)),\n      dinner_cost_usd  : parseFloat(dinnerCost.toFixed(2)),\n      total_day_cost_usd: parseFloat(totalDayCost.toFixed(2)),\n      total_walking_km : parseFloat(totalWalkingKm.toFixed(2))\n    }\n  });\n}\n\n// ─────────────────────────────────────────────────────────────\n// STEP 8 — TRIP SUMMARY\n// ─────────────────────────────────────────────────────────────\n\nconst totalActivityCost = itinerary.reduce(\n  (sum, day) => sum + day.day_summary.activity_cost_usd, 0\n);\nconst totalDinnerCost = itinerary.reduce(\n  (sum, day) => sum + day.day_summary.dinner_cost_usd, 0\n);\nconst totalWalking = itinerary.reduce(\n  (sum, day) => sum + day.day_summary.total_walking_km, 0\n);\n\n// ─────────────────────────────────────────────────────────────\n// FINAL OUTPUT — everything Agent Pass 2 needs\n// ─────────────────────────────────────────────────────────────\n\nreturn {\n  meta: {\n    destination : meta.destination,\n    days        : totalDays,\n    preferences : meta.preferences\n  },\n\n  hotel: {\n    name           : hotel ? hotel.name : null,\n    price_per_night: hotel ? hotel.rate_per_night : null,\n    rating         : hotel ? hotel.overall_rating  : null,\n    neighborhood   : hotel ? hotel.neighborhood    : null,\n    lat            : hotelLat,\n    lng            : hotelLng\n  },\n\n  itinerary: itinerary,\n\n  trip_summary: {\n    total_days          : totalDays,\n    total_activity_cost : parseFloat(totalActivityCost.toFixed(2)),\n    total_dinner_cost   : parseFloat(totalDinnerCost.toFixed(2)),\n    total_walking_km    : parseFloat(totalWalking.toFixed(2)),\n    flight_budget_limit : budget.limits.flightLimit,\n    hotel_budget_limit  : budget.limits.hotelLimit,\n    activity_budget_used: parseFloat((budget.total_budget -budget.remaining).toFixed(2))\n  },\n\n  // Pass through for Agent Pass 2 prompt\n  budget_summary: budget\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        -208
+      ],
+      "id": "e5dce362-13ca-44c8-b6b3-1ebe02b85df1",
+      "name": "PathFinder"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n\nconst CHUNK_SIZE = 500;\n\nconst researchData = $('AI Agent').first().json.output.researchData;\nconst activities   = researchData.activities   || [];\nconst restaurants  = researchData.restaurants  || [];\nconst localTips    = researchData.local_tips   || [];\nconst transport    = researchData.transport_notes || '';\n\n// NOTE: Tavily tool returns source_url per activity\n// Your Agent Pass 1 system prompt must include source_url\n// in the output schema — add this field to your JSON schema:\n// \"source_url\": string  (URL Tavily found this info from)\n// \"source_name\": string (domain name, e.g. \"tripadvisor.com\")\n\nconst allPlaces = [\n  ...activities.map(a => ({\n    place_name  : a.name,\n    type        : a.type || 'activity',\n    text        : a.description || '',\n    source_url  : a.source_url  || null,\n    source_name : a.source_name || extractDomain(a.source_url)\n  })),\n  ...restaurants.map(r => ({\n    place_name  : r.name,\n    type        : 'restaurant',\n    text        : r.description || '',\n    source_url  : r.source_url  || null,\n    source_name : r.source_name || extractDomain(r.source_url)\n  })),\n  {\n    place_name  : 'Local Tips & Transport',\n    type        : 'tips',\n    text        : [...localTips, transport].join('. '),\n    source_url  : null,\n    source_name : null\n  }\n];\n\nfunction extractDomain(url) {\n  if (!url) return null;\n  try {\n    const hostname = new URL(url).hostname;\n    return hostname.replace('www.', '');\n  } catch {\n    return null;\n  }\n}\n\nconst chunks = [];\n\nfor (const place of allPlaces) {\n  const text = place.text.replace(/\\s+/g, ' ').trim();\n  if (!text) continue;\n\n  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];\n  let currentChunk = '';\n\n  for (const sentence of sentences) {\n    if ((currentChunk + sentence).length > CHUNK_SIZE) {\n      if (currentChunk.trim()) {\n        chunks.push({\n          json: {\n            place_name  : place.place_name,\n            type        : place.type,\n            text        : currentChunk.trim(),\n            char_count  : currentChunk.trim().length,\n            // ← CITATION FIELDS carried on every chunk\n            source_url  : place.source_url,\n            source_name : place.source_name\n          }\n        });\n      }\n      currentChunk = sentence;\n    } else {\n      currentChunk += ' ' + sentence;\n    }\n  }\n\n  if (currentChunk.trim()) {\n    chunks.push({\n      json: {\n        place_name  : place.place_name,\n        type        : place.type,\n        text        : currentChunk.trim(),\n        char_count  : currentChunk.trim().length,\n        source_url  : place.source_url,\n        source_name : place.source_name\n      }\n    });\n  }\n}\n\nif (chunks.length === 0) {\n  return [{\n    json: {\n      place_name  : 'fallback',\n      type        : 'tips',\n      text        : 'No description content available.',\n      char_count  : 0,\n      source_url  : null,\n      source_name : null\n    }\n  }];\n}\n\nreturn chunks;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2864,
+        -208
+      ],
+      "id": "f30cc96c-3e6f-4a7d-8a9a-df0241380901",
+      "name": "chunker"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n\nconst chunks    = $input.all();\nconst agentCtx  = $('AI Agent').first().json.output.extractedContext;\n\nconst userQuery = `${agentCtx.days} day trip to ${agentCtx.destination}, `\n                + `preferences: ${agentCtx.preferences}, `\n                + `budget: $${agentCtx.budget}`;\n\nconst chunkRequests = chunks.map(item => ({\n  model    : 'models/text-embedding-004',\n  content  : { parts: [{ text: item.json.text }] },\n  task_type: 'RETRIEVAL_DOCUMENT',\n  title    : item.json.place_name\n}));\n\nconst queryRequest = {\n  model    : 'models/text-embedding-004',\n  content  : { parts: [{ text: userQuery }] },\n  task_type: 'RETRIEVAL_QUERY'\n};\n\nconst allRequests = [...chunkRequests, queryRequest];\n\nreturn [{\n  json: {\n    requests    : allRequests,\n    chunk_count : chunkRequests.length,\n    query_index : allRequests.length - 1,\n    // ← source_url and source_name now carried forward\n    chunk_metadata: chunks.map(c => ({\n      place_name  : c.json.place_name,\n      type        : c.json.type,\n      text        : c.json.text,\n      source_url  : c.json.source_url,\n      source_name : c.json.source_name\n    })),\n    user_query  : userQuery\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3056,
+        -208
+      ],
+      "id": "637b6d6f-b1d9-4b8d-94ce-dcf59f9ed9c8",
+      "name": "packer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key=AQ.Ab8RN6IMgoixsbu4SRizLiRM0z9Yq7OeiGdhqhvXjzffirinWw",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "requests",
+              "value": "={{ $json.requests }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3216,
+        -208
+      ],
+      "id": "a455a9a3-2fc4-4409-ba2f-3824ebb67855",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "function cosine(a, b) {\n  let dot = 0, mA = 0, mB = 0;\n  for (let i = 0; i < a.length; i++) {\n    dot += a[i] * b[i];\n    mA  += a[i] * a[i];\n    mB  += b[i] * b[i];\n  }\n  const denom = Math.sqrt(mA) * Math.sqrt(mB);\n  return denom === 0 ? 0 : dot / denom;\n}\n\nconst batchResponse = $input.first().json.embeddings;\n\nif (!batchResponse || batchResponse.length === 0) {\n  throw new Error('Batch Embedder returned no embeddings');\n}\n\nconst packerData    = $('packer').first().json;\nconst chunkMetadata = packerData.chunk_metadata;\nconst queryIndex    = packerData.query_index;\nconst chunkCount    = packerData.chunk_count;\n\nconst queryVector  = batchResponse[queryIndex].values;\nconst chunkVectors = batchResponse.slice(0, chunkCount);\n\n// Score every chunk\nconst scored = chunkVectors.map((emb, idx) => {\n  const meta  = chunkMetadata[idx];\n  const score = cosine(queryVector, emb.values);\n  return {\n    place_name  : meta.place_name,\n    type        : meta.type,\n    text        : meta.text,\n    score       : parseFloat(score.toFixed(4)),\n    source_url  : meta.source_url  || null,\n    source_name : meta.source_name || null\n  };\n});\n\nscored.sort((a, b) => b.score - a.score);\n\nconst TOP_K    = 15;\nconst topChunks = scored.slice(0, TOP_K);\n\n// Group by place — build rag_context_text WITH inline citations\nconst byPlace = {};\nfor (const chunk of topChunks) {\n  if (!byPlace[chunk.place_name]) {\n    byPlace[chunk.place_name] = {\n      texts      : [],\n      source_url : chunk.source_url,\n      source_name: chunk.source_name\n    };\n  }\n  byPlace[chunk.place_name].texts.push(chunk.text);\n}\n\n// Build context text — each place section ends with its source\nconst rag_context_text = Object.entries(byPlace)\n  .map(([place, data]) => {\n    const citation = data.source_url\n      ? `\\n[Source: ${data.source_name || data.source_url}](${data.source_url})`\n      : '';\n    return `### ${place}\\n${data.texts.join(' ')}${citation}`;\n  })\n  .join('\\n\\n');\n\n// Build deduplicated citations list for frontend display\nconst citationsMap = {};\nfor (const chunk of topChunks) {\n  if (chunk.source_url && !citationsMap[chunk.source_url]) {\n    citationsMap[chunk.source_url] = {\n      place_name  : chunk.place_name,\n      source_name : chunk.source_name || chunk.source_url,\n      source_url  : chunk.source_url,\n      score       : chunk.score\n    };\n  }\n}\nconst citations = Object.values(citationsMap)\n  .sort((a, b) => b.score - a.score);\n\n// Pull pathfinder output\nconst pathfinderOutput = $('PathFinder').first().json;\n\nreturn [{\n  json: {\n    rag_context_text,\n    citations,        // ← NEW: array of {place_name, source_name, source_url, score}\n    top_chunks  : topChunks,\n    itinerary   : pathfinderOutput.itinerary,\n    hotel       : pathfinderOutput.hotel,\n    trip_summary: pathfinderOutput.trip_summary,\n    budget_summary: pathfinderOutput.budget_summary,\n    flights     : $('link_generator').first().json.options.flights,\n    hotels      : $('link_generator').first().json.options.hotels,\n    meta        : pathfinderOutput.meta\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3408,
+        -208
+      ],
+      "id": "77081f9d-165c-48b6-a343-93fc638a9007",
+      "name": "UNPACKER & COSINE RANKER"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\"{{ $json.rag_context_text }}\nfor routing: \n{{ $('PathFinder').item.json.itinerary }}\n{{ $('PathFinder').item.json.hotel }}\n{{ $('PathFinder').item.json.trip_summary }}\n\nflights:\n{{ $('budget guard').item.json.options.flights }}\n\nhotels:\n{{ $('budget guard').item.json.options.hotels }}\nactivities:\n{{ $('budget guard').item.json.options.activities }}\n\n{{ $('AI Agent').item.json.output.extractedContext }}\n{{ $('AI Agent').item.json.output.researchData.transport_notes }}\n{{ $('AI Agent').item.json.output.researchData.local_tips }}\"",
+        "options": {
+          "systemMessage": "=### ROLE\nYou are an expert travel writer and itinerary architect.\nYour ONLY job is to write a beautiful, accurate, practical\nday-by-day travel itinerary for the user.\n\nYou are NOT a researcher. Do NOT search for anything.\nYou have NO tools. Everything you need is already provided\nto you below. Write using ONLY what is given.\n\n---\n\n### WHAT YOU HAVE BEEN GIVEN\n\n1. ITINERARY ROUTE\n   A geo-optimised day-by-day route calculated by a\n   pathfinding algorithm. Stops are already in the correct\n   walking order. Do NOT reorder them.\n   Itinerary: {{ $json.itinerary }}\n\n2. RAG CONTEXT\n   Current, real-world content about each place retrieved\n   from live web searches. Use this to write accurate\n   descriptions — opening hours, ticket prices, local tips.\n   This is your source of truth. Prefer this over anything\n   you know from training.\n   Context: {{ $json.rag_context }}\n\n3. REAL FLIGHT OPTIONS\n   Live prices from Google Flights. Pick the best value\n   option (cheapest that fits the budget).\n   Flights: {{ $json.flights }}\n\n4. REAL HOTEL OPTIONS\n   Live prices from Google Hotels. Use the first hotel\n   (already budget-filtered and geo-anchored).\n   Hotels: {{ $json.hotels }}\n\n5. BUDGET BREAKDOWN\n   Summary: {{ $json.budget_summary }}\n\n6. TRIP DETAILS\n   Destination  : {{ $json.destination }}\n   Duration     : {{ $json.days }} days\n   Total Budget : ${{ $json.budget }} USD\n   Preferences  : {{ $json.preferences }}\n\n7. TRANSPORT NOTES\n   {{ $json.transport_notes }}\n\n8. LOCAL TIPS\n   {{ $json.local_tips }}\n\n---\n\n### OUTPUT STRUCTURE\nWrite the itinerary in this exact structure:\n\n---\n## ✈️ Flight Recommendation\nAirline: [name]\nPrice: $[price] | Duration: [X hrs] | Stops: [n]\nBooking tip: [brief tip]\n\n## 🏨 Hotel\nName: [hotel name]\nPrice: $[X]/night | Rating: [X]/5\nNeighborhood: [area]\nWhy this hotel: [one sentence using RAG context]\n\n---\n\n## Day [N] — [Creative Day Title]\n**Base: [hotel name] → [neighborhood focus for the day]**\n\n### [Time] — [Place Name]\n[2-3 sentences using RAG context: what it is, why visit,\n practical info like hours/tickets/tips]\n💰 Cost: $[X] | ⏱ Duration: [X hrs] | 📍 [neighborhood]\n🚶 [X] km from previous stop\n\n### [Time] — [Next Place]\n...\n\n### [Dinner time] — 🍽 Dinner at [Restaurant Name]\n[2 sentences from RAG context: cuisine, atmosphere, must-order]\n💰 ~$[X] per person | 📍 [neighborhood]\n🚶 [X] km from last activity\n\n**Day [N] Cost: $[X]**\n\n---\n[repeat for each day]\n\n---\n\n## 💰 Trip Budget Summary\n| Category       | Budget    | Estimated Spend |\n|----------------|-----------|-----------------|\n| Flights        | $[limit]  | $[actual]       |\n| Hotel          | $[limit]  | $[actual]       |\n| Activities     | $[limit]  | $[actual]       |\n| Meals          | estimated | $[actual]       |\n| **Total**      | $[budget] | $[total]        |\n\n## 🗺️ Local Tips\n[bullet list from local_tips field]\n\n## 🚌 Getting Around\n[transport_notes field, written naturally]\n\n---\n\nall these in the output fields\n\nthe final output should look like:\n\n{\n  \"output\": \"your output here\"\n}\n\n### RULES\n1. Use RAG context for ALL place descriptions.\n   If RAG context has opening hours — include them.\n   If RAG context has ticket prices — use that price,\n   not the approx_cost from the route data.\n2. Never invent information not present in the data.\n   If something is missing, omit it gracefully.\n3. Keep stop order exactly as given in itinerary.\n   The route is geo-optimised — do not change it.\n4. Budget table must use real numbers from budget_summary.\n5. Tone: warm, practical, excited but not over the top.\n   Write like a knowledgeable local friend, not a brochure.\n6. No emojis outside the section headers defined above.\n7. Do not mention AI, RAG, algorithms, or pathfinding.\n   The user just wants a great itinerary.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3824,
+        -240
+      ],
+      "id": "caff5f93-3bb5-4b72-81b8-ed46ebae3a9b",
+      "name": "AI Agent1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.sessionId }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        3984,
+        48
+      ],
+      "id": "36c6f4dc-ab76-462b-946f-571545851c06",
+      "name": "Simple Memory1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- INPUT VALIDATOR: ENSURE DATA INTEGRITY ---\nconst input = $input.first().json.chatInput|| \"\"; // From Chat Trigger\nconst state = $node[\"Window Buffer Memory\"].json || {}; // Check existing memory\n\n// Define mandatory fields\nconst required = [\"destination\", \"budget\", \"dates\"];\nconst missing = [];\n\n// Simple regex or keyword check (In a real app, you'd use the AI to extract these)\nif (!state.destination && !input.toLowerCase().includes(\"to\")) missing.push(\"destination\");\nif (!state.budget && !input.match(/\\d+/)) missing.push(\"budget\");\nif (!state.dates && !input.toLowerCase().includes(\"day\")) missing.push(\"trip duration/dates\");\n\nreturn {\n  allPresent: missing.length === 0,\n  missingFields: missing,\n  promptUser: missing.length > 0 ? `I'd love to help! I just need your ${missing.join(\", \")} to get started.` : null\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8272,
+        -624
+      ],
+      "id": "0e671412-0f37-4d0d-8f4a-61eeb524fdc4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b668d433-912c-4ca5-8981-cd2fe13722ac",
+              "leftValue": false,
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -8096,
+        -624
+      ],
+      "id": "caa35893-6431-4a35-93d6-8cdc8d14f332",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.promptUser }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        -7776,
+        -848
+      ],
+      "id": "7fcea4db-032e-4931-b6b1-326da8f3f387",
+      "name": "Chat",
+      "webhookId": "314be0a2-d62e-4574-821b-03a8a9cad434"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "459d441b-0de2-4384-9a44-daffef0f7f8e",
+              "name": "=destination",
+              "value": "={{ $node[\"AI Agent\"].json.extracted_destination }}",
+              "type": "string"
+            },
+            {
+              "id": "ae93556a-488b-4974-b97d-3f219827ed59",
+              "name": "total_budget",
+              "value": "={{ $node[\"AI Agent\"].json.extracted_budget }} ",
+              "type": "string"
+            },
+            {
+              "id": "d949caab-6981-4b0b-80be-270b5b011c64",
+              "name": "trip_days",
+              "value": "={{ $node[\"AI Agent\"].json.extracted_days }}",
+              "type": "string"
+            },
+            {
+              "id": "733c56dd-999f-44a8-91a9-369d2347375f",
+              "name": "travelers",
+              "value": "={{ $node[\"AI Agent\"].json.extracted_people || 1 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -7872,
+        -640
+      ],
+      "id": "e4beb67e-f70d-45a0-8d2a-96a316df6ab3",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.infoCollected }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    },
+                    "id": "d394f721-8421-4a35-86c6-f46d7d00f839"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "232589a4-03fb-4491-832e-9967a9af9bc9",
+                    "leftValue": "={{ $json.output.infoCollected }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "info_collected"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        -272
+      ],
+      "id": "d0da094d-3ecd-420b-8bc6-3e2b8706ba42",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.output.researchData.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        -8432,
+        -1568
+      ],
+      "id": "df2d60c6-466f-47a1-8567-717cfb5935e1",
+      "name": "Chat1",
+      "webhookId": "95c747f4-b1b3-440c-bf86-8a1a49cc22f7"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"infoCollected\": true,\n  \"missingFields\": [\"budget\", \"destination\"],\n  \"search_query\": \"string\",\n  \"extractedContext\": {\n    \"destination\": \"dubai\",\n    \"budget\": 100000,\n    \"days\": 5,\n    \"preferences\": \"foodie\",\n    \"outbound_date\": \"yyyy-mm-dd\",\n    \"return_date\":\"yyyy-mm-dd\",\n    \"departure_airport\": \"MAA\",\n    \"arrival_airport\": \"DXB\"\n  },\n  \"researchData\": {\n    \"activities\": [\n      {\n        \"name\": \"TeamLab Borderless\",\n        \"type\": \"culture\",\n        \"neighborhood\": \"Odaiba\",\n        \"approx_cost\": 30,\n        \"duration_hrs\": 3,\n        \"description\": \"Digital art museum with interactive light displays.\",\n         \"source_url\": \"https://tripadviser.com\",\n    \"source_name\": \"tripadviser\"\n      }\n    ],\n    \"restaurants\": [\n      {\n        \"name\": \"Sukiyabashi Jiro\",\n        \"cuisine\": \"Sushi\",\n        \"neighborhood\": \"Ginza\",\n        \"approx_cost_per_person\": 300,\n        \"description\": \"World-famous Michelin-starred sushi bar.\",\n         \"source_url\":\"airbnb.com\",\n    \"source_name\": \"airbnb\"\n      }\n    ],\n    \"transport_notes\": \"Mainly use the JR Yamanote line and Pasmo card for subways.\",\n    \"local_tips\": [\n      \"Carry cash for smaller ramen shops\",\n      \"Get a portable Wi-Fi or eSIM before arriving\"\n    ],\n    \"output\":\"your output\"\n  }\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        -16
+      ],
+      "id": "dad37af6-b790-46c7-a536-020d6ce48162",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        -7248,
+        -1392
+      ],
+      "id": "e763a30f-30d5-4024-8673-33d0508f1f0d",
+      "name": "Chat2",
+      "webhookId": "c9854e05-afd0-4f40-be1a-5c1609860f0f"
+    },
+    {
+      "parameters": {
+        "outputFieldName": "currentDateTime",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        592,
+        16
+      ],
+      "id": "b8a3db57-5d4b-4bf1-954d-c0befbaba4ff",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.sessionId }}",
+        "contextWindowLength": 30
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        128
+      ],
+      "id": "eedaadf1-557a-4a36-af5a-432219141e6b",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "lOojAmD3BmgX9NAT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.openweathermap.org/data/2.5/forecast?q={{ $('AI Agent').first().json.output.extractedContext.destination }}&appid=f3bb4843820c53e0760ef2dce9e93345&units=metric&cnt=40",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        944,
+        -512
+      ],
+      "id": "1a05f6a8-9f06-416e-a5af-1113b3807466",
+      "name": "get_weather"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input       = $input.first().json;\nconst agentOutput = $('AI Agent').first().json.output;\nconst destination = agentOutput.extractedContext.destination;\nconst startDate   = agentOutput.extractedContext.startDate   || '';\nconst endDate     = agentOutput.extractedContext.endDate     || '';\nconst travelers   = agentOutput.extractedContext.travelers   || 2;\nconst origin      = agentOutput.extractedContext.origin      || '';\n\n// ── AIRLINE DIRECT BOOKING LINKS\n// Fallback map when booking_token is not available\nfunction getAirlineLink(airline = '') {\n  const map = {\n    'indigo'          : 'https://www.goindigo.in',\n    'air india'       : 'https://www.airindia.com',\n    'vistara'         : 'https://www.airvistara.com',\n    'spicejet'        : 'https://www.spicejet.com',\n    'emirates'        : 'https://www.emirates.com',\n    'qatar airways'   : 'https://www.qatarairways.com',\n    'lufthansa'       : 'https://www.lufthansa.com',\n    'british airways' : 'https://www.britishairways.com',\n    'ita airways'     : 'https://www.itaairways.com',\n    'air france'      : 'https://www.airfrance.com',\n    'klm'             : 'https://www.klm.com',\n    'turkish airlines': 'https://www.turkishairlines.com',\n    'etihad'          : 'https://www.etihad.com',\n    'singapore airlines': 'https://www.singaporeair.com'\n  };\n  const key = airline.toLowerCase();\n  for (const [name, url] of Object.entries(map)) {\n    if (key.includes(name)) return url;\n  }\n  return null;\n}\n\n// ── 1. FLIGHTS WITH LINKS\nconst flightsWithLinks = (input.options.flights || []).map(f => {\n  // SerpApi returns booking_token for Google Flights deep link\n  const token = f.booking_token || null;\n\n  // Google Flights deep link using token (most accurate)\n  const googleFlightsLink = token\n    ? `https://www.google.com/travel/flights?tfs=${token}`\n    : null;\n\n  // Google Flights search fallback (no token)\n  const googleFlightsSearch = `https://www.google.com/travel/flights/search` +\n    `?q=Flights+from+${encodeURIComponent(origin)}` +\n    `+to+${encodeURIComponent(destination)}` +\n    `+on+${startDate}`;\n\n  // Airline direct site fallback\n  const airlineLink = getAirlineLink(f.airline);\n\n  // Best available link — token first, then search, then airline\n  const best_booking_link = googleFlightsLink\n    || googleFlightsSearch;\n\n  return {\n    ...f,\n    links: {\n      google_flights : googleFlightsLink || googleFlightsSearch,\n      airline_site   : airlineLink,\n      best_link      : best_booking_link,\n      label          : `Book ${f.airline} — $${f.price}`\n    }\n  };\n});\n\n// ── 2. HOTELS WITH LINKS\nconst hotelsWithLinks = (input.options.hotels || []).map(h => {\n  const hotelNameEncoded = encodeURIComponent(h.name + ' ' + destination);\n  const destEncoded      = encodeURIComponent(destination);\n\n  // SerpApi google_hotels returns h.link directly — real Google Hotels page\n  const googleHotelsLink = h.link || null;\n\n  // Booking.com search link (always works as fallback)\n  const bookingComLink = `https://www.booking.com/search.html` +\n    `?ss=${hotelNameEncoded}` +\n    `&checkin=${startDate}` +\n    `&checkout=${endDate}` +\n    `&group_adults=${travelers}` +\n    `&no_rooms=1`;\n\n  // Google Maps link — use coordinates if available, else name search\n  const mapsLink = (h.gps_coordinates?.latitude && h.gps_coordinates?.longitude)\n    ? `https://www.google.com/maps?q=${h.gps_coordinates.latitude},${h.gps_coordinates.longitude}`\n    : `https://www.google.com/maps/search/${hotelNameEncoded}`;\n\n  // Best booking link — Google Hotels page first, then Booking.com\n  const best_booking_link = googleHotelsLink || bookingComLink;\n\n  return {\n    ...h,\n    links: {\n      google_hotels : googleHotelsLink,\n      booking_com   : bookingComLink,\n      google_maps   : mapsLink,\n      best_link     : best_booking_link,\n      label         : `Book ${h.name} — $${h.price_per_night_num}/night`\n    }\n  };\n});\n\n// ── 3. ACTIVITIES WITH LINKS\n// Activities come from Tavily text so no booking token\n// Just attach a Maps search link per activity\nconst activitiesWithLinks = (input.options.activities || []).map(a => {\n  const nameEncoded = encodeURIComponent(a.name + ' ' + destination);\n\n  // Google Maps search for the place\n  const mapsLink = `https://www.google.com/maps/search/${nameEncoded}`;\n\n  // Viator link for bookable tours/tickets\n  const viatorLink = `https://www.viator.com/search/${nameEncoded}`;\n\n  return {\n    ...a,\n    links: {\n      google_maps : mapsLink,\n      book_tour   : viatorLink,\n      label       : a.name\n    }\n  };\n});\n\n\n// budget_summary stays intact for Agent Pass 2\nreturn [{\n  json: {\n    budget_summary : input.budget_summary,\n    options: {\n      flights    : flightsWithLinks,\n      hotels     : hotelsWithLinks,\n      activities : activitiesWithLinks\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        -208
+      ],
+      "id": "f998a4f1-ce99-42c1-bae3-51830e744a97",
+      "name": "link_generator"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "travel-planner",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -64,
+        -272
+      ],
+      "id": "12865ab3-96de-4b72-9842-4c6719c0680e",
+      "name": "Webhook",
+      "webhookId": "da5d3ecd-2a3c-4105-a41a-6fb3830f48b7"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"output\": {\n    \"infoCollected\": true,\n    \"researchData\": {\n      \"output\": {{ JSON.stringify($('AI Agent1').first().json.output) }}\n    },\n    \"flights\": {{ JSON.stringify($('link_generator').first().json.options.flights) }},\n    \"hotels\": {{ JSON.stringify($('link_generator').first().json.options.hotels) }},\n    \"budget_summary\": {{ JSON.stringify($('budget guard').first().json.budget_summary) }},\n    \"weather\": {{ JSON.stringify($('weather').first().json) }},\n    \"itinerary\": {{ JSON.stringify($('PathFinder').first().json.itinerary) }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        4288,
+        -240
+      ],
+      "id": "55b7d4dc-4d87-4584-8f6b-f1e509103976",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        864,
+        -864
+      ],
+      "id": "e4204cab-8609-4dac-8e38-fd82f299831d",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=flights:{{ JSON.stringify($('Google_flights search').item.json.other_flights) }},{{ JSON.stringify($('Google_flights search').item.json.price_insights) }}\n\nactivities:\n{{ JSON.stringify($('AI Agent').item.json.output.researchData) }}\n\nhotels:\n{{ JSON.stringify($('Google_hotels search').first().json.properties || $('Google_hotels search').first().json.hotel_results || []) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Role: You are a specialized Financial Travel Auditor. Your sole responsibility is to ingest raw travel data (flights, hotels, activities) and filter them based on a strict budget allocation logic. You ensure the traveler stays within their financial limits while prioritizing quality and user preferences.Objective:You must process the provided input context and return a single, valid JSON object that mirrors the structure of the \"Budget Guard\" logic. Do not provide conversational filler.Operational Logic:Allocation: Divide the totalBudget based on preferences:Luxury: Flight 35%, Hotel 39%, Activities 17%, Meals 4%, Buffer 5%.Budget/Backpack: Flight 35%, Hotel 19%, Activities 32%, Meals 9%, Buffer 5%.Foodie: Flight 35%, Hotel 26%, Activities 13%, Meals 22%, Buffer 4%.Adventure: Flight 35%, Hotel 22%, Activities 35%, Meals 4%, Buffer 4%.Default: Flight 35%, Hotel 30%, Activity 20%, Meals 10%, Buffer 5%.Flight Filtering: Select top 5 flights $\\leq$ Flight Limit. If none exist, relax the budget by 20% and flag as relaxed.Hotel Filtering: Calculate total_stay_cost (Price $\\times$ Days). Select top 5 hotels $\\leq$ Hotel Limit. If none exist, relax by 20%.Activity Filtering: Score activities based on preference-type matching. Select as many as fit within the Activity Limit.Health Check: Calculate the health_score based on the remaining balance after taking the cheapest options from your filtered lists.Required Output Schema:You must return your response in this exact JSON format:\n\nJSON {\n  \"budget_summary\": {\n    \"total_budget\": 0,\n    \"limits\": {\n      \"flightLimit\": 0,\n      \"hotelLimit\": 0,\n      \"activityLimit\": 0,\n      \"mealLimit\": 0,\n      \"bufferReserve\": 0\n    },\n    \"estimated_costs\": {\n      \"flight\": 0,\n      \"hotel\": 0,\n      \"activities\": 0,\n      \"meals\": 0,\n      \"total\": 0\n    },\n    \"estimated_total\": 0,\n    \"remaining\": 0,\n    \"health_score\": \"Excellent | Good | Tight | Over Budget\",\n    \"health_advice\": \"String advice here\",\n    \"warnings\": []\n  },\n  \"options\": {\n    \"flights\": [],\n    \"hotels\": [],\n    \"activities\": []\n  }\n}\nStrict Constraints:No Hallucinations: Only use the data provided in the input nodes.Currency: Maintain the currency format (e.g., ₹) provided in the input.Zero Results: If no hotels or flights are found even after relaxation, return an empty array [] for that category and add a specific warning to the warnings array."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -7504,
+        -160
+      ],
+      "id": "95ea517c-57c6-4ca2-aaf8-e65c4b5bb93f",
+      "name": "AI Agent2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -7520,
+        32
+      ],
+      "id": "9d473df9-ebb0-41fe-a73f-9299fefad6bc",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "ritgXtdYDiqACuFZ",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -7376,
+        160
+      ],
+      "id": "c71aa46b-750c-466b-a987-2fbec1999d93",
+      "name": "Simple Memory2"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"budget_summary\": {\n    \"total_budget\": 0,\n    \"limits\": {\n      \"flightLimit\": 0,\n      \"hotelLimit\": 0,\n      \"activityLimit\": 0,\n      \"mealLimit\": 0,\n      \"bufferReserve\": 0\n    },\n    \"estimated_costs\": {\n      \"flight\": 0,\n      \"hotel\": 0,\n      \"activities\": 0,\n      \"meals\": 0,\n      \"total\": 0\n    },\n    \"estimated_total\": 0,\n    \"remaining\": 0,\n    \"health_score\": \"Excellent | Good | Tight | Over Budget\",\n    \"health_advice\": \"String advice here\",\n    \"warnings\": []\n  },\n  \"options\": {\n    \"flights\": [],\n    \"hotels\": [],\n    \"activities\": []\n  }\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -7216,
+        16
+      ],
+      "id": "edb6a5a9-9d15-48bc-97a2-18537332a163",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -7088,
+        176
+      ],
+      "id": "ab1712ef-57c0-48db-9ac2-0926869597ac",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "ritgXtdYDiqACuFZ",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "travel-history",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        3536,
+        -912
+      ],
+      "id": "46c6e658-d1be-4d45-a16f-9066fe982184",
+      "name": "Webhook1",
+      "webhookId": "094d650e-f782-456c-9ffd-2fd63ab67dab"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3920,
+        -912
+      ],
+      "id": "a27572ff-635e-4ca7-8383-f022a2159216",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-flash-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -64
+      ],
+      "id": "71e1e640-3ee2-4318-bb1e-4228c34c440a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "N6Nkmz6DQmI9btNp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        272,
+        144
+      ],
+      "id": "ad9c9eb4-7c0f-406b-b53f-5c64af5b368d",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "N6Nkmz6DQmI9btNp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-flash-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        3792,
+        32
+      ],
+      "id": "9b3f7c9d-c76c-4fed-bfde-cb02419566de",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "N6Nkmz6DQmI9btNp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst forecast = $input.first().json;\nconst tripDays = $('AI Agent').first().json.output.extractedContext.days;\nconst startDate = $('AI Agent').first().json.output.extractedContext.startDate\n                  || new Date().toISOString().split('T')[0];\n\n// OpenWeatherMap returns 3-hour intervals (list[])\n// Group them by day\nconst byDay = {};\n\nfor (const entry of (forecast.list || [])) {\n  // entry.dt_txt = \"2026-04-24 09:00:00\"\n  const day = entry.dt_txt.split(' ')[0];\n  if (!byDay[day]) byDay[day] = [];\n  byDay[day].push(entry);\n}\n\n// Build one summary per day\nconst dailySummaries = Object.entries(byDay)\n  .slice(0, tripDays) // only as many days as the trip\n  .map(([date, entries], index) => {\n    // Average temp across the day\n    const avgTemp = entries.reduce((sum, e) =>\n      sum + e.main.temp, 0) / entries.length;\n\n    // Most common weather condition\n    const conditionCounts = {};\n    for (const e of entries) {\n      const desc = e.weather[0].description;\n      conditionCounts[desc] = (conditionCounts[desc] || 0) + 1;\n    }\n    const dominantCondition = Object.entries(conditionCounts)\n      .sort((a, b) => b[1] - a[1])[0][0];\n\n    // Check for rain\n    const hasRain = entries.some(e =>\n      e.weather[0].main.toLowerCase().includes('rain') ||\n      e.weather[0].main.toLowerCase().includes('drizzle')\n    );\n\n    // Max wind speed\n    const maxWind = Math.max(...entries.map(e => e.wind?.speed || 0));\n\n    // Humidity average\n    const avgHumidity = entries.reduce((sum, e) =>\n      sum + e.main.humidity, 0) / entries.length;\n\n    // Human readable advice for Agent Pass 2\n    let packingTip = '';\n    if (hasRain) {\n      packingTip = 'Bring a compact umbrella or light rain jacket.';\n    } else if (avgTemp > 30) {\n      packingTip = 'Very hot — wear sunscreen, carry water, visit indoor spots midday.';\n    } else if (avgTemp < 10) {\n      packingTip = 'Cold day — layer up with a warm jacket.';\n    } else {\n      packingTip = 'Pleasant weather — comfortable for walking and outdoor activities.';\n    }\n\n    // Outdoor activity suitability\n    const outdoorSuitable = !hasRain && avgTemp > 10 && avgTemp < 35;\n\n    return {\n      day_number       : index + 1,\n      date             : date,\n      avg_temp_c       : parseFloat(avgTemp.toFixed(1)),\n      condition        : dominantCondition,\n      has_rain         : hasRain,\n      max_wind_kph     : parseFloat((maxWind * 3.6).toFixed(1)),\n      avg_humidity_pct : Math.round(avgHumidity),\n      outdoor_suitable : outdoorSuitable,\n      packing_tip      : packingTip\n    };\n  });\n\n// Overall trip weather summary\nconst rainyDays  = dailySummaries.filter(d => d.has_rain).length;\nconst avgTripTemp = dailySummaries.reduce((s, d) =>\n  s + d.avg_temp_c, 0) / (dailySummaries.length || 1);\n\nreturn [{\n  json: {\n    city          : forecast.city?.name || '',\n    country       : forecast.city?.country || '',\n    daily         : dailySummaries,\n    trip_summary  : {\n      avg_temp_c    : parseFloat(avgTripTemp.toFixed(1)),\n      rainy_days    : rainyDays,\n      overall_advice: rainyDays > 2\n        ? 'Pack for mixed weather — rain on several days expected.'\n        : avgTripTemp > 28\n          ? 'Hot trip — light clothing and sun protection essential.'\n          : 'Generally good weather expected for your trip.'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -512
+      ],
+      "id": "25e35d23-673b-42f2-9531-53e293e66b90",
+      "name": "weather"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, session_id, message\nFROM n8n_chat_histories\nWHERE session_id = '{{ $json.query.sessionId }}'\nORDER BY id ASC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3728,
+        -912
+      ],
+      "id": "9a520f15-4f4a-4ff7-b91c-58f9c1a1cd15",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "lOojAmD3BmgX9NAT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "travel-sessions",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -8224,
+        384
+      ],
+      "id": "b8536941-d2a7-40e7-b71a-88a22d06a557",
+      "name": "Webhook2",
+      "webhookId": "5d9d53da-ab8c-4057-8c53-a910ad072fab"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  session_id,\n  (SELECT message->>'content'\n   FROM n8n_chat_histories h2\n   WHERE h2.session_id = h1.session_id\n     AND message->>'type' = 'human'\n   ORDER BY id ASC LIMIT 1) as first_message\nFROM n8n_chat_histories h1\nGROUP BY session_id\nORDER BY MAX(id) DESC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -8016,
+        384
+      ],
+      "id": "2ca51225-393c-4fdf-a806-2715f7b1d9d1",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "lOojAmD3BmgX9NAT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -7840,
+        384
+      ],
+      "id": "30fa8de2-2fd0-446a-acb4-b5904c55f4f3",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "content": "## Intent and Input Detection ",
+        "height": 672,
+        "width": 992,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -240,
+        -368
+      ],
+      "typeVersion": 1,
+      "id": "46c16bdd-cfcf-4e83-9558-ad0f25f687de",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Flights, Hotels, and weather\n",
+        "height": 688,
+        "width": 672
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        848,
+        -592
+      ],
+      "typeVersion": 1,
+      "id": "3d65814a-9c97-4bd2-80b1-3eea467d84ca",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Budget and Itinerary Planner ",
+        "height": 352,
+        "width": 816,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1776,
+        -336
+      ],
+      "typeVersion": 1,
+      "id": "ade30baf-45b2-4b0c-b275-e0c5ca59b066",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## RAG (chunking and embeddings)",
+        "height": 288,
+        "width": 768,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2784,
+        -304
+      ],
+      "typeVersion": 1,
+      "id": "8e5dd511-f161-4853-bacd-188fc6668834",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## output processing and parsing",
+        "height": 288,
+        "width": 496,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3696,
+        -304
+      ],
+      "typeVersion": 1,
+      "id": "a98fbf59-f075-491c-9c59-7b12d62fa30e",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Chat History",
+        "height": 368,
+        "width": 784,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3424,
+        -1024
+      ],
+      "typeVersion": 1,
+      "id": "ab5549a2-c669-4af2-98ec-a8555c5407de",
+      "name": "Sticky Note5"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "pragathish07.app.n8n.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+            "content-length": "89",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.7",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "27.5.232.95",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "IN",
+            "cf-ray": "9f2fc9ce7f24de6c-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "origin": "http://localhost:5173",
+            "priority": "u=1, i",
+            "referer": "http://localhost:5173/",
+            "sec-ch-ua": "\"Brave\";v=\"147\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"147\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "sec-gpc": "1",
+            "x-forwarded-for": "27.5.232.95, 104.22.66.8",
+            "x-forwarded-host": "pragathish07.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-59-678f9f8554-gnd2h",
+            "x-is-trusted": "yes",
+            "x-real-ip": "27.5.232.95"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "chatInput": "confirm",
+            "sessionId": "session_1777311775286_fk4f8r",
+            "action": "sendMessage"
+          },
+          "webhookUrl": "https://pragathish07.app.n8n.cloud/webhook/travel-planner",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "pragathish07.app.n8n.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "14.97.170.150",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "IN",
+            "cf-ray": "9f330ec8810c7ffe-MAA",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "origin": "http://localhost:5173",
+            "priority": "u=1, i",
+            "referer": "http://localhost:5173/",
+            "sec-ch-ua": "\"Microsoft Edge\";v=\"147\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"147\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "14.97.170.150, 172.68.146.149",
+            "x-forwarded-host": "pragathish07.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-59-678f9f8554-6xx8s",
+            "x-is-trusted": "yes",
+            "x-real-ip": "14.97.170.150"
+          },
+          "params": {},
+          "query": {
+            "sessionId": "session_1777291400107"
+          },
+          "body": {},
+          "webhookUrl": "https://pragathish07.app.n8n.cloud/webhook/travel-history",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When chat message received": {
+      "main": [
+        []
+      ]
+    },
+    "Search in Tavily": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_flights search": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_hotels search": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "budget guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "budget guard": {
+      "main": [
+        [
+          {
+            "node": "link_generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "geo_coder": {
+      "main": [
+        [
+          {
+            "node": "PathFinder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PathFinder": {
+      "main": [
+        [
+          {
+            "node": "chunker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "chunker": {
+      "main": [
+        [
+          {
+            "node": "packer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "packer": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "UNPACKER & COSINE RANKER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UNPACKER & COSINE RANKER": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        []
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google_flights search",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google_hotels search",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "get_weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat1": {
+      "main": [
+        []
+      ]
+    },
+    "get_weather": {
+      "main": [
+        [
+          {
+            "node": "weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "link_generator": {
+      "main": [
+        [
+          {
+            "node": "geo_coder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "weather": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook2": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "45c7475a-4627-4422-8c6b-26a952b0b2cf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ca0533861cba28bcda205473349b3f9427ebfc57b586d535173fd2997c486461"
+  },
+  "id": "vag2YnT94UnfHjeA",
+  "tags": []
+}
